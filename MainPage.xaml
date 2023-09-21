@@ -20,9 +20,15 @@
             <CollectionView ItemsSource="{Binding TodoItems}">
                 <CollectionView.ItemTemplate>
                     <DataTemplate>
-                        <StackLayout Orientation="Horizontal">
-                            <Label HorizontalOptions="Start" Text="{Binding Title}" />
-                            <CheckBox HorizontalOptions="End" IsChecked="{Binding IsCompleted, Mode=TwoWay}" />
+                        <StackLayout Orientation="Horizontal" VerticalOptions="Center">
+                            <CheckBox
+                                VerticalOptions="Center"
+                                HorizontalOptions="Start" IsChecked="{Binding IsCompleted, Mode=TwoWay}" />
+                            <Label
+                                HorizontalOptions="StartAndExpand"
+                                VerticalOptions="Center"
+                                FontSize="16"
+                                Text="{Binding Title}" />
                         </StackLayout>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
