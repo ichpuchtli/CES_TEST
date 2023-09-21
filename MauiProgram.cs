@@ -16,9 +16,23 @@ public static class MauiProgram
             });
 
         builder.Services.AddHttpClient();
+
+        var sqliteDb = new DatabaseOptions(
+            FileSystem.AppDataDirectory,
+            "Sqlite.db",
+            // open the database in read/write mode
+            SQLite.SQLiteOpenFlags.ReadWrite |
+            // create the database if it doesn't exist
+            SQLite.SQLiteOpenFlags.Create |
+            // enable multi-threaded database access
+            SQLite.SQLiteOpenFlags.SharedCache);
+            
+        builder.Services.AddSingleton(sqliteDb);
+        
         builder.Services.AddSingleton<IConnectivity>(Connectivity.Current);
+        builder.Services.AddSingleton<IConnectivityService, ConnectivityService>();
         builder.Services.AddTransient<ITodoApiService, TodoApiService>();
-        builder.Services.AddTransient<ITodoRepsitory, TodoRepository>();
+        builder.Services.AddTransient<ITodoRepository, TodoRepository>();
         
         builder.Services.AddTransient<ITodoService, TodoService>();
         

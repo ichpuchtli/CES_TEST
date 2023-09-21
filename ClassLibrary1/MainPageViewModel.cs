@@ -1,5 +1,7 @@
 using System.Net.Http.Json;
+using System.Reactive;
 using System.Reactive.Concurrency;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 
@@ -7,72 +9,141 @@ namespace CES_TEST;
 
 public interface ITodoService
 {
+    /// <summary>
+    ///  Diff
+    /// </summary>
+    /// <returns></returns>
     IObservable<List<TodoModel>> GetTodos();
     
     Task CreateTodo(TodoModel item);
+    
+    Task UpdateTodo(TodoModel item);
 }
 
 public class TodoService : ITodoService
 {
     private readonly IConnectivityService _connectivity;
-    private readonly ITodoRepsitory _repository;
+    private readonly ITodoRepository _repository;
     private readonly ITodoApiService _apiService;
-    private ISubject<List<TodoModel>> _todoListUpdated = new ReplaySubject<List<TodoModel>>();
+    private ISubject<List<TodoModel>> _todoListUpdatedEvent = new ReplaySubject<List<TodoModel>>();
+    private ISubject<TodoModel> _todoItemChangeEvent = new ReplaySubject<TodoModel>();
 
     public TodoService(
         IConnectivityService connectivity,
-        ITodoRepsitory repository,
+        ITodoRepository repository,
         ITodoApiService apiService)
     {
         _connectivity = connectivity;
         _repository = repository;
         _apiService = apiService;
+
+        _connectivity
+            .ConnectivityChanged
+            .Where(x => x == NetworkAccess.Internet)
+            .Subscribe(_ => FetchServerTodos());
+
+        _todoItemChangeEvent
+            .Throttle(TimeSpan.FromSeconds(5))
+            .Select(_ => Unit.Default)
+            .Merge(connectivity.ConnectivityChanged
+                .Where(access => access == NetworkAccess.Internet)
+                .Select(_ => Unit.Default))
+            .Subscribe(_ => SavePendingChanges());
     }
-    
+
+    private async Task SavePendingChanges()
+    {
+        try
+        {
+            var pending = await _repository.GetPendingTodos();
+            await _apiService.SaveAsync(pending);
+            await _repository.MarkAsSynchronised(pending);
+        }
+        catch (Exception e)
+        {
+        }
+    }
+
     public IObservable<List<TodoModel>> GetTodos()
     {
-        Task.Factory.StartNew(async () =>
+        return _todoListUpdatedEvent
+            .Merge(FetchLocalTodos())
+            .Merge(FetchServerTodos())
+            .Where(x => x.Count > 0)
+            .DistinctUntilChanged(new TodoListComparer());
+    }
+
+    private IObservable<List<TodoModel>> FetchLocalTodos()
+    {
+        return Observable.FromAsync(() => _repository.GetStoredTodos());
+    }
+
+    public class TodoListComparer : IEqualityComparer<List<TodoModel>>
+    {
+        public bool Equals(List<TodoModel> x, List<TodoModel> y)
         {
-            var storedTodos = await _repository.GetStoredTodos();
-            _todoListUpdated.OnNext(storedTodos);
+            return x.SequenceEqual(y.OrderBy(t => t));
+        }
+
+        public int GetHashCode(List<TodoModel> obj)
+        {
+            return obj.Aggregate(0, (x,y) => HashCode.Combine(x, y.GetHashCode()));
+        }
+    }
+
+    private IObservable<List<TodoModel>> FetchServerTodos()
+    {
+        return Observable.FromAsync(async () =>
+        {
+            if (_connectivity.NetworkAccess == NetworkAccess.Internet)
+            {
+                var serverTodos = await _apiService.GetTodos();
+                await _repository.MergeWithServerTodos(serverTodos);
+                return await _repository.GetStoredTodos();
+            }
+
+            return new List<TodoModel>();
         });
-        
-        Task.Factory.StartNew(async () =>  await FetchLatestTodos());
-        
-        return _todoListUpdated;
     }
 
-    private async Task FetchLatestTodos()
+    public async Task CreateTodo(TodoModel item)
     {
-        if (_connectivity.NetworkAccess == NetworkAccess.Internet)
-        {
-            var serverTodos = await _apiService.GetTodos();
-            await _repository.MergeWithServerTodos(serverTodos);
-            _todoListUpdated.OnNext(serverTodos);
-        }
+        await _repository.AddLocalTodo(new List<TodoModel>() { item });
+
+        // Notify list subscribers
+        _todoListUpdatedEvent.OnNext(await _repository.GetStoredTodos());
+        
+        // notify new item to sync
+        _todoItemChangeEvent.OnNext(item);
     }
 
-    public Task CreateTodo(TodoModel item)
+    public async Task UpdateTodo(TodoModel item)
     {
-        _repository.AddLocalTodo(new List<TodoModel>() { item });
+        await _repository.UpdateLocalTodo(item);
         
-        if (_connectivity.NetworkAccess == NetworkAccess.Internet)
-        {
-            _apiService.SaveAsync(new List<TodoModel>() {item});
-        }
+        // Notify list subscribers
+        _todoListUpdatedEvent.OnNext(await _repository.GetStoredTodos());
         
-        return Task.CompletedTask;
+        // notify new item to sync
+        _todoItemChangeEvent.OnNext(item);
     }
 }
 
 public enum NetworkAccess
 {
-    Internet
+    Unknown,
+    NoNetwork,
+    Local,
+    ConstrainedInternet,
+    Internet,
 }
 
 public interface IConnectivityService
 {
+    public bool IsConnected { get; }
     public NetworkAccess NetworkAccess { get; }
+    
+    IObservable<NetworkAccess> ConnectivityChanged { get; }
 }
 
 public interface ITodoApiService
@@ -126,81 +197,27 @@ public class TodoApiService : ITodoApiService
 public class OfflineCacheInterceptor : DelegatingHandler
 {
     private readonly IConnectivityService _connectivity;
-    private readonly ITodoRepsitory _repository;
+    private readonly ITodoRepository _repository;
 
     public OfflineCacheInterceptor(IConnectivityService connectivity,
-        ITodoRepsitory repository)
+        ITodoRepository repository)
     {
         _connectivity = connectivity;
         _repository = repository;
     }
 }
 
-public interface ITodoRepsitory
+public interface ITodoRepository
 {
     Task<List<TodoModel>> GetStoredTodos();
     
     Task MergeWithServerTodos(List<TodoModel> todos);
     
     Task AddLocalTodo(List<TodoModel> todos);
-}
-
-public class TodoRepository : ITodoRepsitory
-{
-    public static ICollection<TodoModelCtx> Todos { get; set; } = new List<TodoModelCtx>()
-    {
-        new TodoModelCtx
-        {
-            Title = "Hello Word Offline Todo",
-            IsCompleted = false
-        },
-    };
     
-    public Task<List<TodoModel>> GetStoredTodos()
-    {
-        var todoModelCtxes = Todos
-            .Where(x => !x.IsCompleted)
-            .Select(MapToView)
-            .ToList();
-        
-        return Task.FromResult(todoModelCtxes);
-    }
-
-    private TodoModel MapToView(TodoModelCtx todoModelCtx)
-    {
-        return new TodoModel
-        {
-            Title = todoModelCtx.Title,
-            IsCompleted = todoModelCtx.IsCompleted
-        };
-    }
+    Task UpdateLocalTodo(TodoModel item);
     
-    private TodoModelCtx MapToCtx(TodoModel todoModelCtx)
-    {
-        return new TodoModelCtx
-        {
-            Title = todoModelCtx.Title,
-            IsCompleted = todoModelCtx.IsCompleted
-        };
-    }
-
-    public Task MergeWithServerTodos(List<TodoModel> todos)
-    {
-        Todos = Todos.Union(todos.Select(MapToCtx)).ToList();
-        return Task.CompletedTask;
-    }
-
-    public Task AddLocalTodo(List<TodoModel> todos)
-    {
-        return Task.CompletedTask;
-    }
-}
-
-public record TodoModelCtx
-{
-    public string Title { get; set;}
+    Task<List<TodoModel>> GetPendingTodos();
     
-    public bool IsCompleted { get; set;}
-    
-    public bool IsSynced { get; set;}
+    Task MarkAsSynchronised(List<TodoModel> pending);
 }

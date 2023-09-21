@@ -18,7 +18,7 @@ public class UnitTest1
             .Returns(Task.CompletedTask)
             .Verifiable();
 
-        var todoRepository = new Mock<ITodoRepsitory>();
+        var todoRepository = new Mock<ITodoRepository>();
         
         List<TodoModel> savedTodos = null;
         
@@ -35,7 +35,7 @@ public class UnitTest1
         
         connectivity
             .SetupGet(x => x.NetworkAccess)
-            .Returns(NetworkAccess.Internet);
+            .Returns(CES_TEST.NetworkAccess.Internet);
 
         todoService.CreateTodo(new TodoModel() {Title = "Test", IsCompleted = false});
         
