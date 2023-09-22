@@ -27,6 +27,7 @@ public class MainPageViewModel : BaseViewModel
         {
             await _service.CreateTodo(new TodoModel
             {
+                Id = (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
                 Title = NewTodo,
                 IsCompleted = false
             });

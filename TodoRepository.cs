@@ -64,13 +64,13 @@ public class TodoRepository : ITodoRepository
         };
     }
     
-    private TodoModelCtx MapToCtx(TodoModel todoModelCtx)
+    private TodoModelCtx MapToCtx(TodoModel todoModel)
     {
         return new TodoModelCtx
         {
-            Id = todoModelCtx.Id,
-            Title = todoModelCtx.Title,
-            IsCompleted = todoModelCtx.IsCompleted,
+            Id = todoModel.Id,
+            Title = todoModel.Title,
+            IsCompleted = todoModel.IsCompleted,
         };
     }
 
