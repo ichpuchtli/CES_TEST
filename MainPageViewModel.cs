@@ -27,7 +27,6 @@ public class MainPageViewModel : BaseViewModel
         {
             await _service.CreateTodo(new TodoModel
             {
-                Uuid = Guid.NewGuid(),
                 Title = NewTodo,
                 IsCompleted = false
             });
