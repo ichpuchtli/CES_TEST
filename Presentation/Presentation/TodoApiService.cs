@@ -25,7 +25,7 @@ public class TodoApiService : ITodoApiService
                 {
                     var content = await response.Content.ReadFromJsonAsync<List<TodoModel>>();
 
-                    return content;
+                    return content.Take(10).ToList();
                 }
 
                 throw new Exception("Error getting todos");
@@ -41,7 +41,7 @@ public class TodoApiService : ITodoApiService
 
     public Task SaveAsync(List<TodoModel> todos)
     {
-        System.Diagnostics.Debug.WriteLine("Save Async", JsonSerializer.Serialize(todos));
+        System.Diagnostics.Debug.WriteLine("Saving Pending Todos..", JsonSerializer.Serialize(todos));
         return Task.CompletedTask;
     }
 }
