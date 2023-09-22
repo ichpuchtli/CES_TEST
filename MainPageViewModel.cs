@@ -38,7 +38,7 @@ public class MainPageViewModel : BaseViewModel
         }
         finally
         {
-            NewTodo = null;
+            NewTodo = "";
         }
     }
 
