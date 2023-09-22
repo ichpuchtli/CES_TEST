@@ -1,6 +1,6 @@
 namespace CES_TEST;
 
-public enum NetworkAccess
+public enum InternetAccess
 {
     Unknown,
     NoNetwork,

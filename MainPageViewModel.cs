@@ -14,41 +14,70 @@ public class MainPageViewModel : BaseViewModel
     public MainPageViewModel(ITodoService service)
     {
         _service = service;
-        RefreshCommand = new Command(Refresh);
+        AddCommand = new Command(Add);
         TodoItems = new ObservableCollection<TodoItemViewModel>();
     }
     
+    public string NewTodo { get; set; }
 
-    private async void Refresh(object obj)
+    private async void Add(object obj)
     {
+
+        try
+        {
+            await _service.CreateTodo(new TodoModel
+            {
+                Title = NewTodo,
+                IsCompleted = false
+            });
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e.ToString());
+        }
+
+        NewTodo = null;
     }
 
     public ObservableCollection<TodoItemViewModel> TodoItems { get; set; }
 	
-    public ICommand RefreshCommand { get; set; }
+    public ICommand AddCommand { get; set; }
 
     public void PageAppearing()
     {
-        _service.GetTodos()
-            .Select(x => x.Select(MapToObservableObject))
-            // TODO only works if we fully buy in to reactive ui
-            .Subscribe(todos =>
+        try
+        {
+            Task.Run(() =>
             {
-                MainThread.BeginInvokeOnMainThread(() =>
+                
+            _service.GetTodos()
+                .Select(x => x.Select(MapToObservableObject))
+                // TODO only works if we fully buy in to reactive ui
+                .Subscribe(todos =>
                 {
-                    TodoItems.Clear();
-
-                    foreach (var todo in todos)
+                    MainThread.BeginInvokeOnMainThread(() =>
                     {
-                        TodoItems.Add(todo);
-                    }
-                });
+                        TodoItems.Clear();
+
+                        foreach (var todo in todos)
+                        {
+                            TodoItems.Add(todo);
+                        }
+                    });
+                },
+                e => Console.WriteLine(e.ToString()));
+
             });
-        
-        MessagingCenter.Subscribe<TodoItemViewModel>(
-            this,
-            "TodoItemUpdate",
-            (sender) => _service.UpdateTodo(MapToModel(sender)));
+            
+            MessagingCenter.Subscribe<TodoItemViewModel>(
+                this,
+                "TodoItemUpdate",
+                (sender) => _service.UpdateTodo(MapToModel(sender)));
+        }
+        catch (Exception e)
+        {
+           Console.WriteLine(e.ToString()); 
+        }
     }
 
     private TodoModel MapToModel(TodoItemViewModel item)
@@ -74,7 +103,7 @@ public class MainPageViewModel : BaseViewModel
 
 public class TodoItemViewModel : BaseViewModel
 {
-    public string Id { get; set; }
+    public int Id { get; set; }
     
     public string Title { get; set; }
     
@@ -84,11 +113,11 @@ public class TodoItemViewModel : BaseViewModel
     {
         base.OnPropertyChanged(propertyName);
         
-        MessagingCenter.Send(this, "TodoItemUpdated", new TodoItemUpdate{ ItemId = Id });
+        MessagingCenter.Send(this, "TodoItemUpdate", new TodoItemUpdate{ ItemId = Id });
     }
 }
 
 public record TodoItemUpdate
 {
-    public string ItemId { get; init; }
+    public int ItemId { get; init; }
 }

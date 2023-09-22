@@ -1,4 +1,6 @@
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace CES_TEST;
 
@@ -39,6 +41,7 @@ public class TodoApiService : ITodoApiService
 
     public Task SaveAsync(List<TodoModel> todos)
     {
+        System.Diagnostics.Debug.WriteLine("Save Async", JsonSerializer.Serialize(todos));
         return Task.CompletedTask;
     }
 }

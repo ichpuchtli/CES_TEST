@@ -3,6 +3,7 @@ using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using Microsoft.Extensions.Logging;
 
 namespace CES_TEST;
 
@@ -26,14 +27,14 @@ public class TodoService : ITodoService
 
         _connectivityService
             .ConnectivityChanged
-            .Where(x => x == NetworkAccess.Internet)
+            .Where(x => x == InternetAccess.Internet)
             .Subscribe(_ => FetchServerTodos());
 
         _todoItemChangeEvent
             .Throttle(TimeSpan.FromSeconds(5))
             .Select(_ => Unit.Default)
             .Merge(connectivityService.ConnectivityChanged
-                .Where(access => access == NetworkAccess.Internet)
+                .Where(access => access == InternetAccess.Internet)
                 .Select(_ => Unit.Default))
             .Subscribe(_ => SavePendingChanges());
     }
@@ -48,6 +49,7 @@ public class TodoService : ITodoService
         }
         catch (Exception e)
         {
+            Console.WriteLine(e.ToString());
         }
     }
 
@@ -103,12 +105,8 @@ public class TodoService : ITodoService
 public class TodoListComparer : IEqualityComparer<List<TodoModel>>
 {
     public bool Equals(List<TodoModel> x, List<TodoModel> y)
-    {
-        return x.SequenceEqual(y.OrderBy(t => t));
-    }
+        => x.SequenceEqual(y);
 
-    public int GetHashCode(List<TodoModel> obj)
-    {
-        return obj.Aggregate(0, (x,y) => HashCode.Combine(x, y.GetHashCode()));
-    }
+    public int GetHashCode(List<TodoModel> obj) => obj.Aggregate(0, (x,y)
+        => HashCode.Combine(x, y.GetHashCode()));
 }

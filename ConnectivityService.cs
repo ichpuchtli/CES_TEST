@@ -14,22 +14,23 @@ public class ConnectivityService : IConnectivityService
             .FromEventPattern<EventHandler<ConnectivityChangedEventArgs>, ConnectivityChangedEventArgs>(
                 h => _connectivity.ConnectivityChanged += h,
                 h => _connectivity.ConnectivityChanged -= h)
+            .Do(status => System.Diagnostics.Debug.WriteLine("Connectivity Change: ", status.EventArgs.ToString()))
             .Select(_ => MapTo(_connectivity.NetworkAccess));
     }
 
-    private NetworkAccess MapTo(Microsoft.Maui.Networking.NetworkAccess connectivityNetworkAccess)
+    private InternetAccess MapTo(NetworkAccess connectivityNetworkAccess)
     {
         return connectivityNetworkAccess switch
         {
-            Microsoft.Maui.Networking.NetworkAccess.None => NetworkAccess.NoNetwork,
-            Microsoft.Maui.Networking.NetworkAccess.Local => NetworkAccess.Local,
-            Microsoft.Maui.Networking.NetworkAccess.ConstrainedInternet => NetworkAccess.ConstrainedInternet,
-            Microsoft.Maui.Networking.NetworkAccess.Internet => NetworkAccess.Internet,
-            _ => NetworkAccess.Unknown
+            NetworkAccess.None => InternetAccess.NoNetwork,
+            NetworkAccess.Local => InternetAccess.Local,
+            NetworkAccess.ConstrainedInternet => InternetAccess.ConstrainedInternet,
+            NetworkAccess.Internet => InternetAccess.Internet,
+            _ => InternetAccess.Unknown
         };
     }
 
     public bool IsConnected => _connectivity.NetworkAccess == Microsoft.Maui.Networking.NetworkAccess.Internet;
-    public NetworkAccess NetworkAccess => MapTo(_connectivity.NetworkAccess);
-    public IObservable<NetworkAccess> ConnectivityChanged { get; }
+    public InternetAccess InternetAccess => MapTo(_connectivity.NetworkAccess);
+    public IObservable<InternetAccess> ConnectivityChanged { get; }
 }

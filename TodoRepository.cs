@@ -20,7 +20,10 @@ public class TodoRepository : ITodoRepository
             return;
 
         Database = new SQLiteAsyncConnection(Path.Combine(_options.Path, _options.Filename), _options.Flags);
+        Database.Trace = true;
+        Database.Tracer = s => System.Diagnostics.Debug.WriteLine(s);
         await Database.CreateTableAsync<TodoModelCtx>();
+        await Database.CreateTableAsync<TodoModelSyncCtx>();
     }
 
     public SQLiteAsyncConnection Database { get; set; }
@@ -28,7 +31,7 @@ public class TodoRepository : ITodoRepository
     public static ICollection<TodoModelCtx> Todos { get; set; } = new List<TodoModelCtx>()
     {
         new TodoModelCtx {
-            Id = "1",
+            Id = 1,
             Title = "Hello Word Offline Todo",
             IsCompleted = false
         }
@@ -40,6 +43,7 @@ public class TodoRepository : ITodoRepository
         return (await Database
                 .QueryAsync<TodoModelCtx>("SELECT * FROM [TodoModelCtx] WHERE [IsCompleted] = 0"))
                 .Select(MapToView)
+                .OrderBy(x => x.Id)
                 .ToList();
     }
 
@@ -77,6 +81,7 @@ public class TodoRepository : ITodoRepository
         // strategy
         try
         {
+            await Database.DeleteAllAsync<TodoModelCtx>();
             await Database.InsertAllAsync(todos.Select(MapToCtx));
         }
         catch (Exception e)
@@ -107,6 +112,7 @@ public class TodoRepository : ITodoRepository
                                           from [TodoModelCtx] todo
                                           inner join [TodoModelSyncCtx] sync on
                                           todo.Id = sync.TodoItemId
+                                          where sync.SyncComplete = 0
                                           """))
                                            
                 .Select(MapToView)
@@ -116,11 +122,10 @@ public class TodoRepository : ITodoRepository
     public async Task MarkAsSynchronised(List<TodoModel> pending)
     {
         await Init();
-        await Database.QueryScalarsAsync<TodoModelSyncCtx>("""
-                                                 Update [TodoModelSyncCtx]
-                                                 set SyncComplete = 1
-                                                 where TodoItemId in (:ids)
-                                                 """, pending.Select(x => x.Id));
+        await Database.QueryAsync("""
+                                Update [TodoModelSyncCtx]
+                                set SyncComplete = 1
+                               """);
 
     }
 }
@@ -131,7 +136,7 @@ public class TodoModelSyncCtx
     [AutoIncrement]
     public int Id { get; set; }
     
-    public string TodoItemId { get; set; }
+    public int TodoItemId { get; set; }
     
     public bool SyncComplete { get; set; }
 }

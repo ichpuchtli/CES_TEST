@@ -3,7 +3,7 @@ namespace CES_TEST;
 public interface IConnectivityService
 {
     public bool IsConnected { get; }
-    public NetworkAccess NetworkAccess { get; }
+    public InternetAccess InternetAccess { get; }
     
-    IObservable<NetworkAccess> ConnectivityChanged { get; }
+    IObservable<InternetAccess> ConnectivityChanged { get; }
 }
