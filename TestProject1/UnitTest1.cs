@@ -34,8 +34,8 @@ public class UnitTest1
         );
         
         connectivity
-            .SetupGet(x => x.NetworkAccess)
-            .Returns(CES_TEST.NetworkAccess.Internet);
+            .SetupGet(x => x.InternetAccess)
+            .Returns(InternetAccess.Internet);
 
         todoService.CreateTodo(new TodoModel() {Title = "Test", IsCompleted = false});
         

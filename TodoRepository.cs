@@ -122,7 +122,7 @@ public class TodoRepository : ITodoRepository
     public async Task MarkAsSynchronised(List<TodoModel> pending)
     {
         await Init();
-        await Database.QueryAsync("""
+        await Database.QueryAsync<int>("""
                                 Update [TodoModelSyncCtx]
                                 set SyncComplete = 1
                                """);

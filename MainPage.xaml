@@ -14,7 +14,7 @@
                 <Entry
                     TextColor="Black"
                     HorizontalOptions="StartAndExpand"
-                    Placeholder="Remind me to..." Text="{Binding NewTodo}"></Entry>
+                    Placeholder="Remind me to..." Text="{Binding NewTodo, Mode=TwoWay}"></Entry>
                 <Button
                     Text="Add"
                     Command="{Binding AddCommand}"

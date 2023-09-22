@@ -27,6 +27,7 @@ public class MainPageViewModel : BaseViewModel
         {
             await _service.CreateTodo(new TodoModel
             {
+                Uuid = Guid.NewGuid(),
                 Title = NewTodo,
                 IsCompleted = false
             });
@@ -35,8 +36,10 @@ public class MainPageViewModel : BaseViewModel
         {
             Console.WriteLine(e.ToString());
         }
-
-        NewTodo = null;
+        finally
+        {
+            NewTodo = null;
+        }
     }
 
     public ObservableCollection<TodoItemViewModel> TodoItems { get; set; }
